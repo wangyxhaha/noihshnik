@@ -1,0 +1,166 @@
+## README
+
+### 目前已经完成的功能（大概吧）
+- 场景切换：将不同场景的需要绘制和监听事件的对象隔离开
+    1. `Canvas` 类为管理画布的不同场景的类，管理调度场景的绘制，并对接系统提供的监听api，在将其封装后提供给向其注册了监听事件的对象，实现不同场景监听的分离
+        - `Canvas(canvasid,height,width)`（构造函数）
+            > `canvasid`为HTML中`<canvas>`元素的`id`属性，用于识别要管理的`<canvas>` \
+            > `height`为`<canvas>`的高度（逻辑分辨率，即与是否有缩放无关）\
+            > `width`为`<canvas>`的宽度（同上）\
+            > `Canvas`对象中默认会有一个名为`main`的场景
+        - `Canvas.draw()`（绘制函数）
+            > 会去调用已经注册的对象（一般创建一个`Button`、`Input`等对象时会自动注册）的相应的`draw()`函数（也就是说，想要向`Canvas`注册对象接受管理必须提供`draw()`函数）
+        - `Canvas.scene(name)`（获取场景对象引用）
+            > 返回名为`name`的场景，若不存在的话则直接报错\
+            > 一般创建`Button`、`Input`等对象时需要首先提供这个作为参数，以让对象确定自己所在的场景
+        - `Canvas.createNewScene(name,background)`（创建新场景）
+            > `name`为新场景名字\
+            > `background`为新场景背景，需提供一个`Image`对象\
+            > 如果名为`name`的场景已经存在，会直接报错
+        - `Canvas.changeScene(name)`（切换场景）
+            > 切换至名为`name`的场景\
+            > 如果不存在则直接报错\
+            > *BUG：在移动端使用虚拟键盘对`Input`进行输入时，切换场景不会打断输入，输入可以继续进行*
+    2. `CanvasScene`类为场景类，直接对接具体的需要绘制和监听事件的对象
+        - `CanvasScene.setBackground(img)`（设置场景背景）
+            > 需向`img`提供`Image`对象
+        - `CanvasScene.addClickCallBack(mm,md,mu,tm,ts,te,l)`（注册鼠标以及触摸事件监听）
+            > `CanvasScene`提供的监听接口有：\
+            > 　　`mouseMove`：监听鼠标移动（mm）\
+            > 　　`mouseDown`：监听鼠标按下（md）\
+            > 　　`mouseUp`：监听鼠标松开（mu）\
+            > 　　`touchMove`：监听触摸移动（tm）\
+            > 　　`touchStart`：监听触摸开始（ts）\
+            > 　　`touchEnd`：监听触摸结束（te）\
+            > `l`为对象所在图层，用于解决多个对象重叠时的优先级\
+            > *为了兼容电脑端和移动端，一旦一个对象要注册监听，必须提供全部6种的回调函数*
+        - `CanvasScene.addObjectNeedToDraw(ly,f)`（注册在当前场景需要绘制的对象）
+            > `ly`为所在的图层（值越大越靠前）\
+            > `f`为需绘制的对象提供的回调函数，需定义绘制方法（就是说，`CanvasScene`不负责具体的绘制，由具体每个对象负责具体的自己的绘制，`CanvasScene`只负责管理）
+        - `CanvasScene.draw()`（绘制函数）
+            > 一般被`Canvas`类自动调用，会按照图层顺序调用已注册对象的`draw()`
+- 基础精灵类：可绘制、移动等的对象或元素的基类
+    1. `Sprite`类为上述基类，支持一些此类对象的基础功能，比如说移动、透明度等
+        - `Sprite(cvs,x,y)`（构造函数）
+            > `cvs`为对应的`CanvasScene`\
+            > `x`、`y`分别为左上角的x坐标和y坐标（x轴由画布左上角水平指向右，y轴由画布左上角竖直指向下）
+        - `Sprite.setPosition(x,y)`（设置位置）
+        - `Sprite.setTransparentAlpha(a)`（设置透明度）
+            > 范围为0.0~1.0，0.0为完全透明，1.0为完全不透明\
+            > 如参数超出了范围，则静默处理\
+            > 当然这只是设置一下，需要手动在派生类绘制时再手动设置相应api（已经做好的类就不用管了）
+        - `Sprite.moveTo(x,y,time)`（匀速移动）
+            > `x`和`y`为移动的目标坐标\
+            > `time`为移动用时，单位为ms\
+            > 如果存在已有的移动，会将已有的移动取消后再进行现在的移动
+        - `Sprite.slideTo(x,y,k)`（平滑移动）
+            > `x`和`y`为移动的目标坐标\
+            > `k`为强度，0.0≤`k`≤1.0 且`k`越大速度越快
+            > `k`在范围之外会有不预期的结果\
+            > 如果存在已有的移动，会将已有的移动取消后再进行现在的移动
+        - `Sprite.cancelMovement()`（取消已有的移动）
+- 按钮：一种封装好的可绘制对象，支持一些鼠标（或触摸）交互
+    1. `Button`类为按钮类，继承自`Sprite`类，支持`Sprite`类的一切功能（大概吧，只要没冲突），支持鼠标（或触摸）悬停（触摸不存在悬停）、点击、触发回调函数等，可设置是否可点击、是否可拖动（也可以当作一般对象使用）
+        - `Button(cvs,x,y,boxWidth,boxHeight,layer,img_initial,img_onMouseOver,img_onClick,buttonDownCallBack,buttonUpCallBack,boxX=0,boxY=0)`（构造函数）
+            > `cvs`为对应的`CanvasScene`\
+            > `x`、`y`分别为左上角的x坐标和y坐标（x轴由画布左上角水平指向右，y轴由画布左上角竖直指向下）\
+            > `boxWidth`、`boxHeight`为判定区域的高度与宽度\
+            > `layer`为所在图层\
+            > `img_initial`为初始状态图片\
+            > `img_onMouseOver`为鼠标悬停时图片，被设置为不可点击时不会切换至这个图片\
+            > `img_onClick`为鼠标或触摸按下时图片，被设置为不可点击时不会切换至这个图片\
+            > `buttonDownCallBack`为被按下时触发的回调函数，被设置为不可点击时不会触发\
+            > `buttonUpCallBack`为被松开时触发的回调函数，被设置为不可点击时不会触发\
+            > `boxX`为判定区域相对对象坐标的x轴偏移（不填的话默认为0）\
+            > `boxY`同理
+        - `Button.draw()`（绘制函数）
+            > 根据目前所处的状态和透明度绘制自身
+        - `Button.setDraggable(d)`（设置是否可拖动）
+            > `true`为可拖动，`false`为不可拖动
+        - `Button.setClickable(c)`（设置是否可点击）
+            > `true`为可点击，`false`为不可点击
+        - `Button.getImg()`（获取当前状态的图片）
+- 文本输入框：
+    1. `Input`类为输入类，依赖于对HTML标签`<input>`的伪装（这意味着一个`Input`对象就要有一个`<input>`标签），继承自`Sprite`类，支持`Sprite`类的一切功能（大概吧，同`Button`类），支持文本输入、删除、粘贴、光标移动等，但不支持显示选中区域、鼠标点击交互等（懒了，如果有需要再说吧）
+        - `Input(cvs,input_id,x,y,layer)`（构造函数）
+            > `cvs`为所处的场景\
+            > `input_id`为用于伪装的`<input>`的属性`id`\
+            > `x`、`y`为基准坐标（具体文字绘制位置和文字的对其方式等有关）\
+            > `layer`为所处图层
+        - `Input.draw()`（绘制函数）
+            > 负责绘制文字和光标
+        - `Input.enable()`（启用输入）
+        - `Input.disable()`（关闭输入）
+            > 由`Input.submitCallBack(evt)`实现用户按下回车键时会自动关闭输入\
+            > 另外，由对`"blur"`事件的监听实现输入失去焦点时会自动关闭输入（*BUG：对于虚拟键盘上收起键盘的按键无法自动关闭，会导致在其他场景继续输入，目前没有想到的解决方案*）
+- 气泡框：
+    1. `Dialog`类，继承自`Sprite`类， **_可以用透明度了！不会穿帮！_** 支持显示文字，自动适应文字内容的宽度和高度
+        - `Dialog(cvs,x,y,tx,ty,e,tailBottomWidth,layer,text)`（构造函数）
+            > `cvs`是所在场景\
+            > `x`和`y`是中心点（主体的）的坐标\
+            > `tx`和`ty`是尾巴顶点的坐标\
+            > `e`是椭圆离心率\
+            > `tailBottomWidth`是尾巴底部宽度（尾巴实际是个等腰三角形，底边中点在椭圆中心，这个参数为底边长度）\
+            > `layer`是所在图层\
+            > `text`是内容，支持`\n`
+        - `Dialog.draw()`（绘制函数）
+        - `Dialog.setTailPos(tx,ty)`（设置尾巴坐标）
+        - `Dialog.setE(e)`（设置离心率）
+        - `Dialog.setText(t)`（设置内容）
+- 动态加载模块:
+    1. `Resource`类，支持同时异步加载多个资源
+        - `Resource(urls)`（构造函数）
+            > `urls`为要加载的资源的信息\
+            > `urls`应是一个由对象组成的数组，格式如下：
+            > ```javascript
+            > [
+            >     {
+            >         name: "resource1", //资源名称
+            >         type: "image", //资源类型（image或者audio或者gif，gif会被加载为Animation类）
+            >         value: "./foo.png" //资源的地址（相对位置也可）
+            >     },
+            >     ... //其他的资源，以此类推
+            > ]
+            > ```
+        - `Resource.areOurResourcesReady()`（获取是否加载完毕所有资源）
+            > 只有全部加载完毕才会返回`true`\
+            > 加载失败或者没有加载完都返回`false`
+        - `Resource.fail`（加载失败标志）
+            > `false`时为正常，可能正在加载或者加载完毕\
+            > `true`时说明加载出错，console会有信息
+        - `Resource.getResource(name)`（获取资源引用）
+            > 返回名为`name`的资源\
+            > 没有全部加载完毕时返回`null`\
+            > 加载失败返回`null`
+- 动画：
+    1. `Animation`类可以让管理动画更方便一些，且已被`Button`类支持
+        - `Animation(imgList)`（构造函数）
+            > `imgList`为由`{image:<Image>,interval:<number>}`对象组成的数组，按顺序表示动画的每一帧及其帧间隔事件\
+            > `interval`单位为ms
+        - `Animation.start()`（播放函数）
+            > 使用后从当前帧开始播放（初始时为第一帧）
+        - `Animation.pause()`（暂停函数）
+            > 使用后在当前正在播放的帧暂停（重置计时，再度播放时仍需再经过一个完整帧间隔时间）
+        - `Animation.reset()`（重置函数）
+            > 使用后停止播放并回到第一帧
+        - `Animation.to(t)`（跳到到指定帧）
+            > **_注意！不会检查参数是否合法_**
+        - `Animation.nowFrame()`（获取当前帧）
+            > 获取的是目前在第几帧（数字）
+        - `Animation.image`（当前帧）
+            > 是当前的帧（无论是否在播放）
+
+## 关卡制作规范
+为了保证在整合关卡时的统一性，所以制定如下规则：
+
+1. 每个关卡一个文件夹，名称应为缩写
+2. 文件夹中一个以名称缩写命名的js文件，以及一个名为data的数据文件夹
+3. data文件夹中存放资源
+4. js文件中应导出`init(canvas)`和`build(canvas)`函数，其中`canvas`是主程序会提供的`Canvas`对象，是当前显示的画布
+5. `init(canvas)`是初始化函数，其中应只包含加载资源用的代码
+6. `build(canvas)`是关卡构建函数，其中包含关卡如何构成，以及其他代码
+7. `init(canvas)`函数加载时请使用`Resource`类提供的异步加载功能
+8. `init(canvas)`函数被调用的时机不确定，但一定在`build(canvas)`被调用前调用（如果想要保险一些，请在`build(canvas)`中用`Resource.areOurResourcesReady()`判断一下）
+9. `build(canvas)`函数会在玩家抵达某个关卡时被调用
+
+大致就这样
